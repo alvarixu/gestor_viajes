@@ -15,24 +15,43 @@ const foundryEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT;
 const foundryApiKey = process.env.AZURE_FOUNDRY_API_KEY;
 const foundryModel = process.env.AZURE_FOUNDRY_MODEL;
 
-const buildRequestBody = ({ prompt, history }) => ({
+const buildRequestBody = ({ messages }) => ({
   model: foundryModel,
-  prompt,
-  history,
+  messages,
   max_tokens: 600,
   temperature: 0.85
 });
 
+const extractResponseText = (data) => {
+  if (!data) return '';
+  if (typeof data === 'string') return data;
+  if (data.choices?.[0]?.message?.content) return data.choices[0].message.content;
+  if (Array.isArray(data.output)) {
+    return data.output
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (typeof item.text === 'string') return item.text;
+        if (Array.isArray(item.content)) {
+          return item.content.map((block) => block?.text || block?.value || '').join(' ');
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+  return data.result || '';
+};
+
 app.post('/api/travel', async (req, res) => {
   const { season, budget, travelType } = req.body;
-  const prompt = `Eres un asistente de viajes. Propón un destino ideal para la temporada ${season}, con presupuesto ${budget} y enfoque ${travelType}. Incluye plan de 4 días y sugiere hospedaje adecuado para ese enfoque.`;
+  const prompt = `Eres un asistente de viajes. Propón un destino ideal para la temporada ${season}, con un presupuesto aproximado de ${budget} euros y enfoque ${travelType}. Incluye plan de 4 días y sugiere hospedaje adecuado para ese enfoque.`;
 
   if (!foundryEndpoint || !foundryApiKey || !foundryModel) {
     return res.status(500).json({ error: 'Falta configuración de Azure Foundry en .env' });
   }
 
   try {
-    const body = buildRequestBody({ prompt, history: [] });
+    const body = buildRequestBody({ messages: [{ role: 'system', content: prompt }] });
     const response = await axios.post(foundryEndpoint, body, {
       headers: {
         'Content-Type': 'application/json',
@@ -40,8 +59,7 @@ app.post('/api/travel', async (req, res) => {
       }
     });
 
-    const text = response.data?.choices?.[0]?.message?.content || response.data?.result || '';
-
+    const text = extractResponseText(response.data);
     const [destinationMatch, planMatch, lodgingMatch] = text
       .split('\n\n')
       .map((part) => part.trim());
@@ -66,7 +84,11 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const body = buildRequestBody({ prompt, history });
+    const messages = [
+      { role: 'system', content: prompt },
+      ...(Array.isArray(history) ? history : [])
+    ];
+    const body = buildRequestBody({ messages });
     const response = await axios.post(foundryEndpoint, body, {
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +96,7 @@ app.post('/api/chat', async (req, res) => {
       }
     });
 
-    const answer = response.data?.choices?.[0]?.message?.content || response.data?.result || 'No hay respuesta disponible.';
+    const answer = extractResponseText(response.data) || 'No hay respuesta disponible.';
     res.json({ answer });
   } catch (error) {
     console.error(error.message || error);

@@ -16,7 +16,7 @@ const seasons = [
 
 function App() {
   const [season, setSeason] = useState('verano');
-  const [budget, setBudget] = useState('medio');
+  const [budget, setBudget] = useState('1500');
   const [travelType, setTravelType] = useState('monumentos');
   const [destination, setDestination] = useState(null);
   const [plan, setPlan] = useState(null);
@@ -48,7 +48,8 @@ function App() {
         { role: 'system', content: `Recomendación generada para destino: ${destination}.` }
       ]);
     } catch (err) {
-      setError('No se pudo generar la propuesta. Revisa la configuración del servidor.');
+      const message = err.response?.data?.error || 'No se pudo generar la propuesta. Revisa la configuración del servidor.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -103,12 +104,15 @@ function App() {
           </label>
 
           <label>
-            Presupuesto
-            <select value={budget} onChange={(e) => setBudget(e.target.value)}>
-              <option value="bajo">Bajo</option>
-              <option value="medio">Medio</option>
-              <option value="alto">Alto</option>
-            </select>
+            Presupuesto (precio estimado)
+            <input
+              type="number"
+              min="0"
+              step="50"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder="Ej. 1200"
+            />
           </label>
 
           <label>
