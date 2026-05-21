@@ -70,10 +70,29 @@ label {
 select, input {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
   color: #f8fafc;
   padding: 12px 14px;
   outline: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='10' viewBox='0 0 14 10'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23EDF2F7' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px 10px;
+  padding-right: 42px;
+}
+
+select:focus,
+input:focus {
+  border-color: #60a5fa;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
 
 button {
