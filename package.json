@@ -1,0 +1,14 @@
+{
+  "name": "gestor_viajes",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "install": "npm install --prefix front && npm install --prefix back",
+    "dev": "concurrently \"npm run dev --prefix front\" \"npm run start --prefix back\"",
+    "build": "npm run build --prefix front",
+    "start": "npm run start --prefix back"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,160 @@
+:root {
+  color-scheme: dark;
+  color: #ffffff;
+  background: #10121a;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body, html, #root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: radial-gradient(circle at top, #324d9d 0%, #07101f 55%);
+  color: #edf2f7;
+}
+
+.page-container {
+  width: min(1200px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 36px 0 80px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 2.8vw, 3rem);
+}
+
+header p {
+  color: #b8c1d3;
+  margin-top: 10px;
+}
+
+.form-card, .result-card, .chat-card {
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  padding: 24px;
+  margin-bottom: 22px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+}
+
+.form-card h2, .result-card h2, .chat-card h2 {
+  margin-top: 0;
+  margin-bottom: 18px;
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-weight: 600;
+}
+
+select, input {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+  padding: 12px 14px;
+  outline: none;
+}
+
+button {
+  margin-top: 18px;
+  padding: 14px 22px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.highlight {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+
+.result-block {
+  margin-top: 16px;
+}
+
+pre {
+  white-space: pre-wrap;
+  color: #dbeafe;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.chat-window {
+  min-height: 240px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.chat-message {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.chat-message.user {
+  background: rgba(59, 130, 246, 0.12);
+  justify-self: end;
+}
+
+.chat-message.assistant {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.chat-message .role {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.error {
+  color: #fca5a5;
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .chat-form {
+    grid-template-columns: 1fr;
+  }
+}
