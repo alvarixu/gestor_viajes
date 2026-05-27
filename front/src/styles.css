@@ -39,6 +39,24 @@
   color-scheme: dark;
 }
 
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: #ffffff;
+  --bg-input: rgba(0, 0, 0, 0.04);
+  --bg-input-focus: rgba(0, 0, 0, 0.08);
+  --border-subtle: rgba(0, 0, 0, 0.1);
+  --border-glow: rgba(99, 102, 241, 0.2);
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0,0,0,0.1);
+  --shadow-card-hover: 0 12px 30px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0,0,0,0.1);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.1);
+  color-scheme: light;
+}
+
 /* ===== RESET & BASE ===== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -264,6 +282,10 @@ input[type="number"]:hover,
 input[type="text"]:hover {
   border-color: rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.08);
+}
+select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 /* Budget input */
@@ -1196,6 +1218,41 @@ footer .footer-divider {
   font-weight: 600;
   color: var(--accent-indigo);
   margin-top: auto;
+}
+
+/* ===== BUTTONS ===== */
+.history-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.history-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-indigo);
+  transform: translateY(-2px);
+}
+.theme-toggle-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.theme-toggle-btn:hover {
+  background: var(--bg-input-focus);
+  border-color: var(--text-primary);
+  transform: translateY(-2px);
 }
 
 /* ===== RESPONSIVE ===== */

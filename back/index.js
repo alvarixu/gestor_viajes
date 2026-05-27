@@ -198,9 +198,9 @@ Genera el plan completo con exactamente ${days} días. Cada día debe tener entr
 
     res.json({ ...travelData, image, planId, similarTrips });
 
-  } catch (error) {
-    console.error(error.message || error);
-    res.status(500).json({ error: 'Error al llamar a Azure Foundry' });
+  } catch (err) {
+    console.error('Error generando viaje:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Error al llamar a Azure Foundry', details: err.response?.data });
   }
 });
 

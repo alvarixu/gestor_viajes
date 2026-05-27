@@ -4,39 +4,38 @@ import axios from 'axios';
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const TRAVEL_TYPES = [
-  { value: 'fiesta',      label: 'Fiesta y vida nocturna',  emoji: '🎉' },
-  { value: 'monumentos',  label: 'Monumentos y cultura',    emoji: '🏛️' },
-  { value: 'escapada',    label: 'Escapada mental',         emoji: '🧘' },
-  { value: 'naturaleza',  label: 'Naturaleza y aventura',   emoji: '🌿' },
-  { value: 'gastronomia', label: 'Gastronomía',             emoji: '🍽️' },
-  { value: 'familiar',    label: 'Viaje familiar',          emoji: '👨‍👩‍👧' },
-  { value: 'custom',      label: 'Personalizado…',          emoji: '✏️' }
+  { value: 'fiesta',      label: 'Fiesta y vida nocturna' },
+  { value: 'monumentos',  label: 'Monumentos y cultura' },
+  { value: 'escapada',    label: 'Escapada mental' },
+  { value: 'naturaleza',  label: 'Naturaleza y aventura' },
+  { value: 'gastronomia', label: 'Gastronomía' },
+  { value: 'familiar',    label: 'Viaje familiar' },
+  { value: 'custom',      label: 'Personalizado…' }
 ];
 
 const SEASONS = [
-  { value: 'primavera', label: 'Primavera', emoji: '🌸' },
-  { value: 'verano',    label: 'Verano',    emoji: '☀️' },
-  { value: 'otono',     label: 'Otoño',     emoji: '🍂' },
-  { value: 'invierno',  label: 'Invierno',  emoji: '❄️' }
+  { value: 'primavera', label: 'Primavera' },
+  { value: 'verano',    label: 'Verano' },
+  { value: 'otono',     label: 'Otoño' },
+  { value: 'invierno',  label: 'Invierno' }
 ];
 
 const DAY_PRESETS = [
-  { days: 2,  label: 'Fin de semana', emoji: '🌙' },
-  { days: 4,  label: 'Escapada',      emoji: '✈️' },
-  { days: 7,  label: '1 Semana',      emoji: '📅' },
-  { days: 10, label: '10 Días',       emoji: '🗓️' },
-  { days: 14, label: '2 Semanas',     emoji: '🌍' }
+  { days: 2,  label: 'Fin de semana' },
+  { days: 4,  label: 'Escapada' },
+  { days: 7,  label: '1 Semana' },
+  { days: 10, label: '10 Días' },
+  { days: 14, label: '2 Semanas' }
 ];
 
 const LOADING_STEPS = [
-  { emoji: '🔍', text: 'Analizando la temporada y tus preferencias...' },
-  { emoji: '🌍', text: 'Buscando en tu historial de viajes...' },
-  { emoji: '📅', text: 'Planificando cada día del viaje...' },
-  { emoji: '🏨', text: 'Buscando el hospedaje ideal...' }
+  { text: 'Analizando la temporada y tus preferencias...' },
+  { text: 'Buscando en tu historial de viajes...' },
+  { text: 'Planificando cada día del viaje...' },
+  { text: 'Buscando el hospedaje ideal...' }
 ];
 
 const SEASON_LABELS = { primavera: 'Primavera', verano: 'Verano', otono: 'Otoño', invierno: 'Invierno' };
-const SEASON_EMOJIS = { primavera: '🌸', verano: '☀️', otono: '🍂', invierno: '❄️' };
 
 // ─── Markdown renderer ────────────────────────────────────────────────────────
 
@@ -115,10 +114,21 @@ function App() {
   const resultRef   = useRef(null);
   const intervalRef = useRef(null);
 
+  const [theme, setTheme]             = useState('dark');
+
   // Scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, chatLoading]);
+
+  // Handle theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(t => t === 'dark' ? 'light' : 'dark');
+  };
 
   // Scroll to results
   useEffect(() => {
@@ -269,7 +279,6 @@ function App() {
       <aside className={`history-panel${historyOpen ? ' open' : ''}`} aria-label="Historial de viajes">
         <div className="history-panel-header">
           <div className="history-panel-title">
-            <span>📚</span>
             <span>Mis viajes</span>
           </div>
           <button className="history-close-btn" onClick={() => setHistoryOpen(false)} aria-label="Cerrar historial">✕</button>
@@ -285,7 +294,6 @@ function App() {
 
           {!historyLoading && historyPlans.length === 0 && (
             <div className="history-empty">
-              <span className="history-empty-icon">🗺️</span>
               <span>Aún no tienes viajes guardados. ¡Genera tu primero!</span>
             </div>
           )}
@@ -300,12 +308,12 @@ function App() {
               {plan.imageUrl ? (
                 <img src={plan.imageUrl} alt={plan.destination} className="history-item-img" />
               ) : (
-                <div className="history-item-img history-item-img-placeholder">🌍</div>
+                <div className="history-item-img history-item-img-placeholder"></div>
               )}
               <div className="history-item-info">
                 <div className="history-item-dest">{plan.destination}</div>
                 <div className="history-item-meta">
-                  <span>{typeEmoji(plan.travelType)} {plan.travelType}</span>
+                  <span>{plan.travelType}</span>
                   <span>📅 {plan.days}d</span>
                 </div>
                 <div className="history-item-date">{formatDate(plan.createdAt)}</div>
@@ -319,8 +327,11 @@ function App() {
       {/* ── HEADER ───────────────────────────────────────────────────────── */}
       <header>
         <div className="header-top">
-          <div style={{ flex: 1 }} />
-          <span className="header-icon" role="img" aria-label="avión">✈️</span>
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+            <button className="theme-toggle-btn" onClick={toggleTheme} aria-label="Cambiar tema" title="Cambiar tema">
+              {theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro'}
+            </button>
+          </div>
           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
             <button
               className="history-btn"
@@ -328,7 +339,7 @@ function App() {
               aria-label="Ver mis viajes"
               id="history-btn"
             >
-              📚 Mis viajes
+              Mis viajes
             </button>
           </div>
         </div>
@@ -341,7 +352,6 @@ function App() {
       {/* ── FORMULARIO ───────────────────────────────────────────────────── */}
       <section className="card" id="travel-form">
         <div className="card-header">
-          <div className="card-header-icon">🗺️</div>
           <h2>Personaliza tu viaje</h2>
         </div>
 
@@ -349,7 +359,7 @@ function App() {
           <div className="form-group">
             <label className="form-label" htmlFor="season-select">Temporada</label>
             <select id="season-select" value={season} onChange={e => setSeason(e.target.value)}>
-              {SEASONS.map(s => <option key={s.value} value={s.value}>{s.emoji} {s.label}</option>)}
+              {SEASONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
 
@@ -367,7 +377,7 @@ function App() {
           <div className="form-group">
             <label className="form-label" htmlFor="type-select">Enfoque del viaje</label>
             <select id="type-select" value={travelType} onChange={e => setTravelType(e.target.value)}>
-              {TRAVEL_TYPES.map(t => <option key={t.value} value={t.value}>{t.emoji} {t.label}</option>)}
+              {TRAVEL_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
         </div>
@@ -393,7 +403,6 @@ function App() {
                 className={`day-preset-btn${days === p.days ? ' active' : ''}`}
                 onClick={() => setDays(p.days)}
               >
-                <span className="preset-emoji">{p.emoji}</span>
                 <span className="preset-label">{p.label}</span>
                 <span className="preset-days">{p.days}d</span>
               </button>
@@ -412,13 +421,12 @@ function App() {
         <button className="btn-primary" onClick={handleGenerate} disabled={loading} id="generate-btn">
           <span>
             {loading && <span className="spinner" />}
-            {loading ? 'Generando tu viaje...' : '✨ Proponer destino y planificar'}
+            {loading ? 'Generando tu viaje...' : 'Proponer destino y planificar'}
           </span>
         </button>
 
         {loading && (
           <div className="loading-steps">
-            <span className="loading-step-emoji">{LOADING_STEPS[loadingStep].emoji}</span>
             <span className="loading-step-text">{LOADING_STEPS[loadingStep].text}</span>
           </div>
         )}
@@ -459,11 +467,11 @@ function App() {
           )}
 
           <div className="badges">
-            <span className="badge badge-season">{currentSeason?.emoji} {currentSeason?.label}</span>
-            <span className="badge badge-budget">💰 {budget}€</span>
-            <span className="badge badge-type">{currentType?.emoji || '✏️'} {effectiveTravelType}</span>
-            <span className="badge badge-days">📅 {days} {days === 1 ? 'día' : 'días'}</span>
-            {planId && <span className="badge badge-saved">✅ Guardado</span>}
+            <span className="badge badge-season">{currentSeason?.label}</span>
+            <span className="badge badge-budget">{budget}€</span>
+            <span className="badge badge-type">{effectiveTravelType}</span>
+            <span className="badge badge-days">{days} {days === 1 ? 'día' : 'días'}</span>
+            {planId && <span className="badge badge-saved">Guardado</span>}
           </div>
 
           {result.why && (
@@ -516,7 +524,7 @@ function App() {
           {/* ── Viajes similares (RAG) ────────────────────────────────────── */}
           {similarTrips.length > 0 && (
             <div className="result-section similar-trips-section">
-              <h3>🗺️ Destinos similares que ya has explorado</h3>
+              <h3>Destinos similares que ya has explorado</h3>
               <div className="similar-trips-grid">
                 {similarTrips.map(trip => (
                   <button
@@ -533,8 +541,8 @@ function App() {
                     <div className="similar-trip-info">
                       <div className="similar-trip-dest">{trip.destination}</div>
                       <div className="similar-trip-meta">
-                        <span>{typeEmoji(trip.travelType)} {trip.travelType}</span>
-                        <span>{SEASON_EMOJIS[trip.season] || ''} {SEASON_LABELS[trip.season] || trip.season}</span>
+                        <span>{trip.travelType}</span>
+                        <span>{SEASON_LABELS[trip.season] || trip.season}</span>
                       </div>
                       <div className="similar-trip-date">{formatDate(trip.createdAt)}</div>
                     </div>
