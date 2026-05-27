@@ -19,7 +19,8 @@ export const generateEmbedding = async (text) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${embeddingApiKey}`
+          'Authorization': `Bearer ${embeddingApiKey}`,
+          'api-key': embeddingApiKey // Soporte para Azure OpenAI directo
         },
         timeout: 8000
       }
