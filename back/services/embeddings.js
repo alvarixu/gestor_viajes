@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import axios from 'axios';
 
 const embeddingEndpoint = process.env.AZURE_EMBEDDING_ENDPOINT;
@@ -12,9 +13,17 @@ const embeddingModel    = process.env.AZURE_EMBEDDING_DEPLOYMENT || 'text-embedd
 export const generateEmbedding = async (text) => {
   if (!embeddingEndpoint || !embeddingApiKey) return null;
 
+  let url = embeddingEndpoint;
+  if (embeddingEndpoint.includes('.openai.azure.com') && !embeddingEndpoint.includes('/embeddings')) {
+    const base = embeddingEndpoint.replace(/\/openai\/v1\/?$/, '').replace(/\/$/, '');
+    url = `${base}/openai/deployments/${embeddingModel}/embeddings?api-version=2023-05-15`;
+  } else if (!embeddingEndpoint.includes('/embeddings')) {
+    url = `${embeddingEndpoint.replace(/\/$/, '')}/models/embeddings?api-version=2023-05-15`;
+  }
+
   try {
     const response = await axios.post(
-      embeddingEndpoint,
+      url,
       { model: embeddingModel, input: String(text).slice(0, 8000) },
       {
         headers: {

@@ -1,14 +1,12 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import axios from 'axios';
 import { generateEmbedding, buildTravelText, buildQueryText } from './services/embeddings.js';
 import {
   ensureIndex, indexTravelPlan, updatePlanChat,
   getAllPlans, getPlan, searchSimilar, searchRelevantContext
 } from './services/azureSearch.js';
-
-dotenv.config();
 
 const app  = express();
 const port = process.env.PORT || 4000;
@@ -28,11 +26,28 @@ const unsplashKey     = process.env.UNSPLASH_ACCESS_KEY;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const getChatEndpoint = () => {
+  if (foundryEndpoint.includes('/chat/completions')) return foundryEndpoint;
+  if (foundryEndpoint.includes('.openai.azure.com')) {
+    // Es un endpoint base de Azure OpenAI
+    const base = foundryEndpoint.replace(/\/openai\/v1\/?$/, '').replace(/\/$/, '');
+    return `${base}/openai/deployments/${foundryModel}/chat/completions?api-version=2024-02-15-preview`;
+  }
+  // Fallback asumiendo Foundry Serverless
+  return `${foundryEndpoint.replace(/\/$/, '')}/models/chat/completions?api-version=2024-02-15-preview`;
+};
+
 const callAI = async (messages, maxTokens = 1800) => {
+  const url = getChatEndpoint();
   const response = await axios.post(
-    foundryEndpoint,
+    url,
     { model: foundryModel, messages, max_tokens: maxTokens, temperature: 0.85 },
-    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${foundryApiKey}` } }
+    { headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${foundryApiKey}`,
+        'api-key': foundryApiKey // Soporte Azure OpenAI directo
+      } 
+    }
   );
   return extractText(response.data);
 };

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import axios from 'axios';
 
 const searchEndpoint = process.env.AZURE_SEARCH_ENDPOINT;
