@@ -433,8 +433,93 @@ app.get('/api/plan/:id', async (req, res) => {
   }
 });
 
+// ─── GET /api/geocode ────────────────────────────────────────────────────────
+// Geocodifica un lugar usando Nominatim (OpenStreetMap), sin API key
+app.get('/api/geocode', async (req, res) => {
+  const { query } = req.query;
+  if (!query) return res.status(400).json({ error: 'Se requiere parámetro query' });
+  try {
+    const { data } = await axios.get('https://nominatim.openstreetmap.org/search', {
+      params: { q: query, format: 'json', limit: 1, addressdetails: 0 },
+      headers: { 'User-Agent': 'vIAja/1.0 (travel-planner-app)' },
+      timeout: 6000
+    });
+    if (!data || data.length === 0) return res.json({ lat: null, lng: null });
+    const { lat, lon, display_name } = data[0];
+    res.json({ lat: parseFloat(lat), lng: parseFloat(lon), display_name });
+  } catch (err) {
+    console.error('Error geocodificando:', err.message);
+    res.status(500).json({ error: 'Error al geocodificar', lat: null, lng: null });
+  }
+});
+
+// ─── GET /api/restaurants ─────────────────────────────────────────────────────
+// Busca restaurantes y bares cercanos usando Overpass API (OpenStreetMap)
+// Params: lat, lng, radius (metros, default 500), minStars (default 0)
+app.get('/api/restaurants', async (req, res) => {
+  const { lat, lng, radius = 500, minStars = 0 } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'Se requieren lat y lng' });
+
+  const overpassQuery = `
+    [out:json][timeout:15];
+    (
+      node["amenity"~"restaurant|cafe|bar|bistro|fast_food|pub"](around:${radius},${lat},${lng});
+      way["amenity"~"restaurant|cafe|bar|bistro|fast_food|pub"](around:${radius},${lat},${lng});
+    );
+    out center tags;`;
+
+  try {
+    const { data } = await axios.post(
+      'https://overpass-api.de/api/interpreter',
+      overpassQuery,
+      { 
+        headers: { 
+          'Content-Type': 'text/plain',
+          'User-Agent': 'vIAja/1.0 (travel-planner-app)'
+        }, 
+        timeout: 15000 
+      }
+    );
+
+    const restaurants = (data.elements || [])
+      .map(el => {
+        const tags = el.tags || {};
+        const coords = el.type === 'way' ? el.center : { lat: el.lat, lon: el.lon };
+        const stars = parseFloat(tags['stars'] || tags['rating'] || 0);
+        const reviews = parseInt(tags['review_count'] || 0);
+        // Calcular score combinado: estrellas + boost por nº de reviews
+        const score = stars + (reviews > 50 ? 0.5 : reviews > 10 ? 0.25 : 0);
+        return {
+          id: el.id,
+          name: tags.name || tags['name:es'] || 'Sin nombre',
+          type: tags.amenity || 'restaurant',
+          cuisine: tags.cuisine || '',
+          stars,
+          reviews,
+          score,
+          phone: tags.phone || tags['contact:phone'] || '',
+          website: tags.website || tags['contact:website'] || '',
+          opening_hours: tags.opening_hours || '',
+          address: [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(' ') || '',
+          lat: coords?.lat ? parseFloat(coords.lat) : null,
+          lng: coords?.lon ? parseFloat(coords.lon) : null,
+          price_level: tags.fee === 'yes' ? '€€' : (tags['price_range'] || '')
+        };
+      })
+      .filter(r => r.name !== 'Sin nombre' && r.lat && r.lng && r.stars >= parseFloat(minStars))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12);
+
+    res.json(restaurants);
+  } catch (err) {
+    console.error('Error buscando restaurantes:', err.message);
+    // Fallback: devolver array vacío sin romper la app
+    res.json([]);
+  }
+});
+
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
 app.listen(port, () => {
-  console.log(`✈️  Gestor de Viajes IA en http://localhost:${port}`);
+  console.log(`✈️  vIAja en http://localhost:${port}`);
 });

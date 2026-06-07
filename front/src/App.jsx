@@ -1,5 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix Leaflet default icon path issue with Vite bundler
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -86,7 +96,170 @@ const renderMarkdown = (text) => {
   return html;
 };
 
-// ─── Activity renderer ─────────────────────────────────────────────────────────
+// ─── Activity renderer ───────────────────────────────────────────────────────────
+
+// ─── Restaurant Stars helper ─────────────────────────────────────────────────────────
+
+const StarRating = ({ score, max = 5 }) => {
+  const pct = Math.min(1, score / max) * 100;
+  return (
+    <span className="star-rating" title={`${score.toFixed(1)} / ${max}`}>
+      <span className="stars-empty">★★★★★</span>
+      <span className="stars-filled" style={{ width: `${pct}%` }}>★★★★★</span>
+    </span>
+  );
+};
+
+// ─── Restaurant Card ───────────────────────────────────────────────────────────────────
+
+const TYPE_EMOJI = {
+  restaurant: '🍽️', cafe: '☕', bar: '🍺', pub: '🍻',
+  bistro: '🥘', fast_food: '🍔', default: '🍽️'
+};
+
+const RestaurantCard = ({ r }) => {
+  const emoji = TYPE_EMOJI[r.type] || TYPE_EMOJI.default;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + (r.address ? ' ' + r.address : ''))}&query_place_id=${r.lat},${r.lng}`;
+  const cuisine = r.cuisine ? r.cuisine.replace(/_/g, ' ').replace(/;/g, ', ') : '';
+  return (
+    <div className="restaurant-card">
+      <div className="restaurant-card-header">
+        <span className="restaurant-emoji">{emoji}</span>
+        <div className="restaurant-info">
+          <div className="restaurant-name">{r.name}</div>
+          {cuisine && <div className="restaurant-cuisine">{cuisine}</div>}
+        </div>
+        {r.stars > 0 && (
+          <div className="restaurant-rating">
+            <StarRating score={r.stars} />
+            <span className="restaurant-score">{r.stars.toFixed(1)}</span>
+          </div>
+        )}
+      </div>
+      {r.address && <div className="restaurant-address">📍 {r.address}</div>}
+      {r.opening_hours && (
+        <div className="restaurant-hours">
+          ⏰ <span>{r.opening_hours.split(';')[0]}</span>
+        </div>
+      )}
+      <div className="restaurant-actions">
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="restaurant-maps-btn">
+          Ver en Maps →
+        </a>
+        {r.website && (
+          <a href={r.website} target="_blank" rel="noopener noreferrer" className="restaurant-web-btn">
+            Web
+          </a>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── DayMap component ───────────────────────────────────────────────────────────────────
+
+// Custom numbered marker for activities
+const createNumberedIcon = (num) =>
+  L.divIcon({
+    className: '',
+    html: `<div class="map-marker-num">${num}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+  });
+
+// Restaurant marker
+const restaurantIcon = L.divIcon({
+  className: '',
+  html: `<div class="map-marker-restaurant">🍽️</div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16],
+});
+
+const DayMap = ({ activities, restaurants, destination }) => {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef    = useRef(null);
+  const layerGroupRef     = useRef(null);
+
+  // Initialise map once
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    const map = L.map(mapContainerRef.current, {
+      center: [40.4168, -3.7038], zoom: 13,
+      zoomControl: true, scrollWheelZoom: false
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    }).addTo(map);
+    mapInstanceRef.current = map;
+    layerGroupRef.current  = L.layerGroup().addTo(map);
+    // CRITICAL: force Leaflet to recalculate size once the container is visible in DOM
+    setTimeout(() => map.invalidateSize(), 100);
+    return () => { map.remove(); mapInstanceRef.current = null; };
+  }, []);
+
+  // Also invalidate size whenever activities change (tab switch may hide/show the container)
+  useEffect(() => {
+    const timer = setTimeout(() => mapInstanceRef.current?.invalidateSize(), 80);
+    return () => clearTimeout(timer);
+  }, [activities]);
+
+  // Update markers & route when activities/restaurants change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const lg  = layerGroupRef.current;
+    if (!map || !lg) return;
+    lg.clearLayers();
+
+    const validActs = (activities || []).filter(a => a._lat && a._lng);
+    const validRest = (restaurants  || []).filter(r => r.lat  && r.lng);
+
+    // Activity markers
+    validActs.forEach((act, i) => {
+      const marker = L.marker([act._lat, act._lng], { icon: createNumberedIcon(i + 1) })
+        .bindPopup(`<strong>${i + 1}. ${act.name}</strong>${act.price ? `<br><span class='map-popup-price'>${act.price}</span>` : ''}`);
+      lg.addLayer(marker);
+    });
+
+    // Restaurant markers
+    validRest.forEach(r => {
+      const marker = L.marker([r.lat, r.lng], { icon: restaurantIcon })
+        .bindPopup(`<strong>🍽️ ${r.name}</strong>${r.cuisine ? `<br>${r.cuisine.replace(/_/g,' ')}` : ''}${r.stars > 0 ? `<br>★ ${r.stars.toFixed(1)}` : ''}`);
+      lg.addLayer(marker);
+    });
+
+    // Route polyline between activity markers
+    if (validActs.length >= 2) {
+      const latlngs = validActs.map(a => [a._lat, a._lng]);
+      const line = L.polyline(latlngs, {
+        color: '#818cf8', weight: 3, opacity: 0.85,
+        dashArray: '8 6', lineCap: 'round', lineJoin: 'round'
+      });
+      lg.addLayer(line);
+      // Fit bounds to all features
+      const allPoints = [
+        ...latlngs,
+        ...validRest.map(r => [r.lat, r.lng])
+      ];
+      map.fitBounds(L.latLngBounds(allPoints).pad(0.15));
+    } else if (validActs.length === 1) {
+      map.setView([validActs[0]._lat, validActs[0]._lng], 14);
+    }
+  }, [activities, restaurants]);
+
+  return (
+    <div className="day-map-wrapper">
+      <div ref={mapContainerRef} className="day-map-container" />
+      <div className="map-legend">
+        <span className="legend-item"><span className="legend-dot legend-activity">1</span> Actividad</span>
+        <span className="legend-item"><span className="legend-rest">🍽️</span> Restaurante</span>
+        <span className="legend-item"><span className="legend-line" /> Ruta</span>
+      </div>
+    </div>
+  );
+};
 
 const ActivityItem = ({ act }) => {
   if (typeof act === 'string') {
@@ -158,6 +331,8 @@ const formatDate = (iso) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 function App() {
+  const [activeTab, setActiveTab] = useState('home');
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   // Form state
   const [season, setSeason] = useState('verano');
   const [budget, setBudget] = useState('1500');
@@ -185,10 +360,18 @@ function App() {
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPlans, setHistoryPlans] = useState([]);
+  const [savedPlans, setSavedPlans] = useState(() => { try { return JSON.parse(localStorage.getItem('vIAja_saved_plans') || '[]'); } catch { return []; } });
   const [historyLoading, setHistoryLoading] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
-  const [selectedHistoryGroup, setSelectedHistoryGroup] = useState(null); // 'Monumentos y cultura' etc.
+  const [selectedHistoryGroup, setSelectedHistoryGroup] = useState(null);
   const [historyOriginGroup, setHistoryOriginGroup] = useState(null);
+
+  // Map & restaurants state
+  const [activeDayIndex, setActiveDayIndex] = useState(0);
+  const [geoActivities, setGeoActivities] = useState([]); // activities with _lat/_lng
+  const [dayRestaurants, setDayRestaurants] = useState([]);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [minRating, setMinRating] = useState(0); // 0 = todos
 
   const chatEndRef = useRef(null);
   const resultRef = useRef(null);
@@ -233,8 +416,8 @@ function App() {
 
   // Load history when panel opens
   useEffect(() => {
-    if (historyOpen) loadHistory();
-  }, [historyOpen]);
+    if (activeTab === 'history' || activeTab === 'all_history') loadHistory();
+  }, [activeTab]);
 
   const toggleTravelType = (value) => {
     let newTypes = [...travelType];
@@ -304,7 +487,8 @@ function App() {
       setHistoryOriginGroup(groupName || selectedHistoryGroup); // save origin to go back
       setHistoryOpen(false); // close sidebar
       setSelectedHistoryGroup(null); // close previews modal
-      setModalOpen(true);
+      setActiveTab('proposals');
+      if (window.innerWidth <= 768) setSidebarExpanded(false);
       if (data.chatHistory) {
         setChatHistory(JSON.parse(data.chatHistory));
       } else {
@@ -342,7 +526,8 @@ function App() {
       });
       setProposals(data.proposals || []);
       setActiveProposal(0);
-      setModalOpen(true);
+      setActiveTab('proposals');
+      if (window.innerWidth <= 768) setSidebarExpanded(false);
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo generar la propuesta. Revisa la configuración del servidor.');
     } finally {
@@ -356,7 +541,90 @@ function App() {
     setSelectedProposal(proposal);
     setChatHistory([]);
     setModalOpen(false);
+    setActiveDayIndex(0);
+    setGeoActivities([]);
+    setDayRestaurants([]);
+    
+    const pid = proposal.planId || proposal.id;
+    if (pid && !savedPlans.includes(pid)) {
+      const newSaved = [...savedPlans, pid];
+      setSavedPlans(newSaved);
+      localStorage.setItem('vIAja_saved_plans', JSON.stringify(newSaved));
+    }
   };
+
+  // ─── Load map data for a day ─────────────────────────────────────────────────────────
+
+  const loadDayMap = useCallback(async (dayPlan, destination, country, rating) => {
+    if (!dayPlan?.activities?.length) return;
+    setMapLoading(true);
+    setGeoActivities([]);
+    setDayRestaurants([]);
+
+    const city = [destination, country].filter(Boolean).join(', ');
+
+    // 1. Geocode all activities in parallel (rate-limited: one at a time to be polite)
+    const geoResults = [];
+    for (const act of dayPlan.activities) {
+      try {
+        const actName = typeof act === 'string' ? act : act.name;
+        const { data } = await axios.get('/api/geocode', {
+          params: { query: `${actName}, ${city}` }
+        });
+        geoResults.push({ ...(typeof act === 'string' ? { name: act } : act), _lat: data.lat, _lng: data.lng });
+      } catch {
+        geoResults.push({ ...(typeof act === 'string' ? { name: act } : act), _lat: null, _lng: null });
+      }
+      // Small delay to respect Nominatim rate limit (1 req/s)
+      await new Promise(r => setTimeout(r, 350));
+    }
+    setGeoActivities(geoResults);
+
+    // 2. Find centroid of valid points for restaurant search
+    const validPoints = geoResults.filter(a => a._lat && a._lng);
+    let avgLat, avgLng, radius = 600;
+    
+    if (validPoints.length > 0) {
+      avgLat = validPoints.reduce((s, a) => s + a._lat, 0) / validPoints.length;
+      avgLng = validPoints.reduce((s, a) => s + a._lng, 0) / validPoints.length;
+    } else {
+      try {
+        const { data } = await axios.get('/api/geocode', { params: { query: city } });
+        if (data && data.lat && data.lng) {
+          avgLat = data.lat;
+          avgLng = data.lng;
+          radius = 2000;
+        }
+      } catch (e) {
+        console.error('Fallback geocode failed');
+      }
+    }
+
+    if (avgLat && avgLng) {
+      try {
+        const { data: rests } = await axios.get('/api/restaurants', {
+          params: { lat: avgLat, lng: avgLng, radius, minStars: rating }
+        });
+        setDayRestaurants(rests || []);
+      } catch {
+        setDayRestaurants([]);
+      }
+    } else {
+      setDayRestaurants([]);
+    }
+    setMapLoading(false);
+  }, []);
+
+  // Auto-load map when selectedProposal changes (first day) or when browsing proposals in modal
+  useEffect(() => {
+    if (modalOpen && proposals[activeProposal]?.plan?.length > 0) {
+      setActiveDayIndex(0);
+      loadDayMap(proposals[activeProposal].plan[0], proposals[activeProposal].destination, proposals[activeProposal].country, minRating);
+    } else if (!modalOpen && selectedProposal?.plan?.length > 0) {
+      loadDayMap(selectedProposal.plan[0], selectedProposal.destination, selectedProposal.country, minRating);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProposal, modalOpen, activeProposal]);
 
   // ─── Chat ──────────────────────────────────────────────────────────────────
 
@@ -401,301 +669,197 @@ function App() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  return (
-    <div className="page-container">
-
-      {/* ── HISTORY PANEL ────────────────────────────────────────────────── */}
-      {historyOpen && (
-        <div className="history-overlay" onClick={() => setHistoryOpen(false)} />
-      )}
-      <aside className={`history-panel${historyOpen ? ' open' : ''}`} aria-label="Historial de viajes">
-        <div className="history-panel-header">
-          <div className="history-panel-title">
-            <span>Mis viajes</span>
+  const renderDayPlanUI = (targetProposal, isModal = false) => {
+    if (!targetProposal || !Array.isArray(targetProposal.plan) || targetProposal.plan.length === 0) return null;
+    return (
+      <div className={isModal ? "modal-section" : "result-section"}>
+        <div className="plan-section-header">
+          <h3 style={{ margin: 0 }} className={isModal ? "modal-section-title" : ""}>🗓️ Plan de viaje</h3>
+          <div className="map-rating-filter">
+            <label className="map-filter-label">
+              ★ Min. estrellas:
+              <select
+                value={minRating}
+                onChange={e => {
+                  const r = parseFloat(e.target.value);
+                  setMinRating(r);
+                  if (targetProposal?.plan?.[activeDayIndex]) {
+                    loadDayMap(targetProposal.plan[activeDayIndex], targetProposal.destination, targetProposal.country, r);
+                  }
+                }}
+                className="map-filter-select"
+              >
+                <option value={0}>Todos</option>
+                <option value={3}>3+</option>
+                <option value={4}>4+</option>
+                <option value={4.5}>4.5+</option>
+              </select>
+            </label>
           </div>
-          <button className="history-close-btn" onClick={() => setHistoryOpen(false)} aria-label="Cerrar historial">✕</button>
         </div>
 
-        <div className="history-panel-body">
-          {historyLoading && (
-            <div className="history-loading">
-              <span className="spinner" style={{ borderTopColor: 'var(--accent-indigo)' }} />
-              <span>Cargando historial…</span>
+        {/* Day tabs */}
+        <div className="day-tabs">
+          {targetProposal.plan.map((dayPlan, idx) => (
+            <button
+              key={dayPlan.day}
+              className={`day-tab-btn ${activeDayIndex === idx ? 'active' : ''}`}
+              onClick={() => {
+                setActiveDayIndex(idx);
+                loadDayMap(dayPlan, targetProposal.destination, targetProposal.country, minRating);
+              }}
+            >
+              <span className="day-tab-num">Día {dayPlan.day}</span>
+              <span className="day-tab-title">{dayPlan.title}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Active day detail */}
+        {(() => {
+          const dayPlan = targetProposal.plan[activeDayIndex];
+          if (!dayPlan) return null;
+          return (
+            <div className="day-detail-panel" key={activeDayIndex}>
+              {/* Map */}
+              <div className="day-map-section">
+                {mapLoading && (
+                  <div className="map-loading-overlay">
+                    <span className="spinner" style={{ borderTopColor: 'var(--accent-indigo)' }} />
+                    <span>Geocodificando actividades y buscando restaurantes…</span>
+                  </div>
+                )}
+                <DayMap
+                  activities={geoActivities}
+                  restaurants={dayRestaurants}
+                  destination={targetProposal.destination}
+                />
+              </div>
+
+              {/* Activities */}
+              <div className="day-activities-panel">
+                <div className="day-panel-title">
+                  <span className="day-number-badge">Día {dayPlan.day}</span>
+                  <span className="day-panel-ttl">{dayPlan.title}</span>
+                </div>
+                {Array.isArray(dayPlan.activities) && (
+                  <ul className="activity-list rich">
+                    {dayPlan.activities.map((act, i) => (
+                      <li key={i} className="act-item-rich" style={{ listStyle: 'none' }}>
+                        <div className="act-main">
+                          <span className="act-num-badge">{i + 1}</span>
+                          <span className="act-name">{typeof act === 'string' ? act : act.name}</span>
+                          {typeof act !== 'string' && act.price && (
+                            <span className={`act-price-badge ${act.price.toLowerCase().includes('gratis') ? 'free' : ''}`}>
+                              {act.price.toLowerCase().includes('gratis') ? '🆓 Gratis' : `💶 ${act.price}`}
+                            </span>
+                          )}
+                        </div>
+                        {typeof act !== 'string' && act.description && <p className="act-description">{act.description}</p>}
+                        {typeof act !== 'string' && act.url && (
+                          <a href={act.url} target="_blank" rel="noopener noreferrer" className="act-url">
+                            <span>🔗</span><span>Ver más</span>
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Restaurants section */}
+                <div className="restaurants-section">
+                  <div className="restaurants-title">
+                    🍽️ Dónde comer cerca
+                    {mapLoading && <span className="rest-loading-tag">Buscando…</span>}
+                    {!mapLoading && dayRestaurants.length === 0 && geoActivities.length > 0 && (
+                      <span className="rest-empty-tag">Sin resultados en esta zona</span>
+                    )}
+                  </div>
+                  {dayRestaurants.length > 0 && (
+                    <div className="restaurants-grid">
+                      {dayRestaurants.map(r => <RestaurantCard key={r.id} r={r} />)}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          );
+        })()}
+      </div>
+    );
+  };
+
+  return (
+    <div className="dashboard-layout">
+      {/* ── SIDEBAR ────────────────────────────────────────────────────────── */}
+      <aside className={`dashboard-sidebar ${sidebarExpanded ? 'expanded' : 'collapsed'}`}>
+        <div className="sidebar-header">
+          <div className="sidebar-logo">
+            <span className="sidebar-logo-icon">✈️</span>
+            {sidebarExpanded && <span className="sidebar-logo-text">vIAja</span>}
+          </div>
+          <button className="sidebar-toggle-btn" onClick={() => setSidebarExpanded(!sidebarExpanded)} aria-label="Toggle Sidebar">
+            {sidebarExpanded ? '‹' : '›'}
+          </button>
+        </div>
+
+        <nav className="sidebar-nav">
+          <button 
+            className={`sidebar-nav-btn ${activeTab === 'home' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('home'); if(window.innerWidth <= 768) setSidebarExpanded(false); }}
+          >
+            <span className="sidebar-nav-icon">🏠</span>
+            {sidebarExpanded && <span className="sidebar-nav-text">Inicio</span>}
+          </button>
+          
+          {proposals.length > 0 && (
+            <button 
+              className={`sidebar-nav-btn ${activeTab === 'proposals' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('proposals'); if(window.innerWidth <= 768) setSidebarExpanded(false); }}
+            >
+              <span className="sidebar-nav-icon">✨</span>
+              {sidebarExpanded && <span className="sidebar-nav-text">Propuestas</span>}
+              {sidebarExpanded && <span className="sidebar-nav-badge">3</span>}
+            </button>
           )}
 
-          {!historyLoading && historyPlans.length === 0 && (
-            <div className="history-empty">
-              <span>Aún no tienes viajes guardados. ¡Genera tu primero!</span>
-            </div>
-          )}
+          <button 
+            className={`sidebar-nav-btn ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('history'); if(window.innerWidth <= 768) setSidebarExpanded(false); }}
+          >
+            <span className="sidebar-nav-icon">📚</span>
+            {sidebarExpanded && <span className="sidebar-nav-text">Guardados</span>}
+          </button>
 
-          {!historyLoading && historyPlans.length > 0 && (
-            <div className="history-groups">
-              {Object.entries(
-                historyPlans.reduce((acc, plan) => {
-                  const type = plan.travelType || 'Otros';
-                  if (!acc[type]) acc[type] = [];
-                  acc[type].push(plan);
-                  return acc;
-                }, {})
-              ).map(([type, plans]) => (
-                <button
-                  key={type}
-                  className="history-group-btn"
-                  onClick={() => {
-                    setSelectedHistoryGroup(type);
-                    setHistoryOpen(false); // Hide sidebar when opening previews
-                  }}
-                  style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    width: '100%', padding: '14px 18px', marginBottom: '8px',
-                    background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                    borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                >
-                  <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{type}</span>
-                  <span style={{
-                    background: 'var(--accent-indigo)', color: 'white', padding: '2px 10px',
-                    borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold'
-                  }}>{plans.length}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <button 
+            className={`sidebar-nav-btn ${activeTab === 'all_history' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('all_history'); if(window.innerWidth <= 768) setSidebarExpanded(false); }}
+          >
+            <span className="sidebar-nav-icon">🕰️</span>
+            {sidebarExpanded && <span className="sidebar-nav-text">Historial</span>}
+          </button>
+        </nav>
+
+        <div className="sidebar-footer">
+          <button className="sidebar-nav-btn theme-toggle" onClick={toggleTheme}>
+            <span className="sidebar-nav-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+            {sidebarExpanded && <span className="sidebar-nav-text">{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>}
+          </button>
         </div>
       </aside>
 
-      {/* ── PREVIEWS MODAL (Polaroids) ────────────────────────────────────── */}
-      {selectedHistoryGroup && (
-        <>
-          <div className="modal-backdrop" onClick={() => setSelectedHistoryGroup(null)} />
-          <div className="previews-modal" style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            background: 'var(--bg-card)', padding: '30px', borderRadius: '16px',
-            width: '90%', maxWidth: '800px', maxHeight: '85vh', overflowY: 'auto',
-            zIndex: 200, border: '1px solid var(--border-subtle)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Viajes guardados: <span style={{ color: 'var(--accent-indigo)' }}>{selectedHistoryGroup}</span></h2>
-              <button className="history-close-btn" onClick={() => setSelectedHistoryGroup(null)}>✕</button>
-            </div>
-            
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px'
-            }}>
-              {historyPlans.filter(p => (p.travelType || 'Otros') === selectedHistoryGroup).map(plan => (
-                <button
-                  key={plan.id}
-                  onClick={() => loadPlanFromHistory(plan.id, selectedHistoryGroup)}
-                  disabled={planLoading}
-                  style={{
-                    background: 'white', padding: '10px 10px 20px', borderRadius: '4px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)', border: 'none', cursor: 'pointer',
-                    transition: 'transform 0.2s', textAlign: 'center', display: 'flex', flexDirection: 'column'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05) rotate(-2deg)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1) rotate(0)'}
-                >
-                  {plan.imageUrl ? (
-                    <img src={plan.imageUrl} alt={plan.destination} style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '2px', marginBottom: '12px' }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '160px', background: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', borderRadius: '2px', marginBottom: '12px' }}>🌍</div>
-                  )}
-                  <span style={{ color: '#333', fontWeight: 'bold', fontSize: '1.1rem', fontFamily: 'var(--font-heading)' }}>{plan.destination}</span>
-                  <span style={{ color: '#777', fontSize: '0.85rem', marginTop: '4px' }}>{plan.days} días · {formatDate(plan.createdAt)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ── PROPOSALS MODAL ───────────────────────────────────────────────── */}
-      {modalOpen && proposals.length > 0 && (
-        <>
-          <div className="modal-backdrop" onClick={() => setModalOpen(false)} />
-          <div className="proposals-modal" role="dialog" aria-modal="true" aria-label="Propuestas de viaje" ref={modalRef}>
-
-            {/* Modal Header */}
-            <div className="modal-header">
-              <div className="modal-header-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                {historyOriginGroup && (
-                  <button 
-                    className="history-btn" 
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'transparent' }}
-                    onClick={() => {
-                      setModalOpen(false);
-                      setProposals([]);
-                      setSelectedHistoryGroup(historyOriginGroup);
-                      setHistoryOriginGroup(null);
-                    }}
-                  >
-                    ⬅ Volver a {historyOriginGroup}
-                  </button>
-                )}
-                <span className="modal-title-icon">✈️</span>
-                <div>
-                  <h2 className="modal-title">Tus 3 propuestas de viaje</h2>
-                  <p className="modal-subtitle">{currentSeason?.label} · {budget}€ · {effectiveTravelType} · {days} {days === 1 ? 'día' : 'días'}</p>
-                </div>
-              </div>
-              <button className="modal-close-btn" onClick={() => setModalOpen(false)} aria-label="Cerrar">✕</button>
-            </div>
-
-            {/* Proposal Tabs */}
-            <div className="proposal-tabs">
-              {proposals.map((p, i) => (
-                <button
-                  key={i}
-                  className={`proposal-tab${activeProposal === i ? ' active' : ''}`}
-                  onClick={() => setActiveProposal(i)}
-                  id={`proposal-tab-${i}`}
-                >
-                  <span className="proposal-tab-emoji">{PROPOSAL_LABELS[i]?.emoji}</span>
-                  <span className="proposal-tab-label">{PROPOSAL_LABELS[i]?.label}</span>
-                  <span className="proposal-tab-dest">{p.destination}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Active Proposal Content */}
-            {currentProposal && (
-              <div className="modal-body">
-                {/* Destination Hero */}
-                <div className="modal-destination-hero">
-                  {currentProposal.image && !imgErrors[activeProposal] ? (
-                    <div className="modal-hero-img-wrap">
-                      <img
-                        src={currentProposal.image}
-                        alt={currentProposal.destination}
-                        className="modal-hero-img"
-                        onError={() => setImgErrors(prev => ({ ...prev, [activeProposal]: true }))}
-                      />
-                      <div className="modal-hero-overlay" />
-                      <div className="modal-hero-title">
-                        <div className="proposal-type-pill">
-                          <span>{PROPOSAL_LABELS[activeProposal]?.emoji}</span>
-                          <span>{PROPOSAL_LABELS[activeProposal]?.label}</span>
-                          <span className="proposal-type-desc">— {PROPOSAL_LABELS[activeProposal]?.desc}</span>
-                        </div>
-                        <h3 className="modal-dest-name">{currentProposal.destination}</h3>
-                        {currentProposal.country && <span className="modal-dest-country">{currentProposal.country}</span>}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="modal-hero-no-img">
-                      <div className="proposal-type-pill">
-                        <span>{PROPOSAL_LABELS[activeProposal]?.emoji}</span>
-                        <span>{PROPOSAL_LABELS[activeProposal]?.label}</span>
-                        <span className="proposal-type-desc">— {PROPOSAL_LABELS[activeProposal]?.desc}</span>
-                      </div>
-                      <h3 className="modal-dest-name-plain">{currentProposal.destination}{currentProposal.country ? `, ${currentProposal.country}` : ''}</h3>
-                    </div>
-                  )}
-                </div>
-
-                {/* Why block */}
-                {currentProposal.why && (
-                  <div className="modal-why-block">
-                    <div className="why-icon">💡</div>
-                    <div>
-                      <strong>¿Por qué este destino?</strong>
-                      <p>{currentProposal.why}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Plan preview */}
-                {Array.isArray(currentProposal.plan) && currentProposal.plan.length > 0 && (
-                  <div className="modal-section">
-                    <h4 className="modal-section-title">🗓️ Plan de viaje</h4>
-                    <div className="modal-days-grid">
-                      {currentProposal.plan.map((dayPlan) => (
-                        <div className="modal-day-card" key={dayPlan.day}>
-                          <div className="day-number">Día {dayPlan.day}</div>
-                          <div className="day-title">{dayPlan.title}</div>
-                          {Array.isArray(dayPlan.activities) && (
-                            <ul className="activity-list rich">
-                              {dayPlan.activities.map((act, i) => <ActivityItem key={i} act={act} />)}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Lodging */}
-                {currentProposal.lodging && (
-                  <div className="modal-section">
-                    <h4 className="modal-section-title">🏨 3 opciones de hospedaje</h4>
-                    <LodgingSection lodging={currentProposal.lodging} />
-                  </div>
-                )}
-
-                {/* Navigation arrows + Select CTA */}
-                <div className="modal-footer-actions">
-                  <div className="modal-nav-arrows">
-                    <button className="modal-nav-btn" onClick={goPrev} aria-label="Propuesta anterior">
-                      ‹
-                    </button>
-                    <span className="modal-nav-counter">{activeProposal + 1} / {proposals.length}</span>
-                    <button className="modal-nav-btn" onClick={goNext} aria-label="Propuesta siguiente">
-                      ›
-                    </button>
-                  </div>
-                  <button
-                    className="btn-select-proposal"
-                    onClick={() => handleSelectProposal(currentProposal)}
-                    id={`select-proposal-${activeProposal}`}
-                  >
-                    <span>Elegir este destino</span>
-                    <span className="btn-select-arrow">→</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* ── HEADER ───────────────────────────────────────────────────────── */}
-      <header>
-        <div className="header-top">
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
-            <button className="theme-toggle-btn" onClick={toggleTheme} aria-label="Cambiar tema" title="Cambiar tema">
-              {theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro'}
-            </button>
-          </div>
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-            {proposals.length > 0 && !modalOpen && (
-              <button
-                className="reopen-modal-btn"
-                onClick={() => setModalOpen(true)}
-                id="reopen-modal-btn"
-              >
-                ✈️ Ver propuestas
-              </button>
-            )}
-            <button
-              className="history-btn"
-              onClick={() => setHistoryOpen(true)}
-              aria-label="Ver mis viajes"
-              id="history-btn"
-            >
-              Mis viajes
-            </button>
-          </div>
-        </div>
-        <h1>Gestor de Viajes IA</h1>
+      {/* ── MAIN CONTENT ──────────────────────────────────────────────────── */}
+      <main className="dashboard-main-content">
+        {activeTab === 'home' && (
+          <div className="dashboard-view home-view" style={{ maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+            <header>
+        
+        <h1>vIAja</h1>
         <p className="subtitle">
           Planifica tu viaje ideal con recomendaciones inteligentes de destino, hospedaje y un asistente personal.
         </p>
       </header>
-
-      {/* ── FORMULARIO ───────────────────────────────────────────────────── */}
-      <section className="card" id="travel-form">
+            <section className="card" id="travel-form">
         <div className="card-header">
           <h2>Personaliza tu viaje</h2>
         </div>
@@ -815,9 +979,7 @@ function App() {
           <div className="error-message"><span>⚠️</span><span>{error}</span></div>
         )}
       </section>
-
-      {/* ── SELECTED RESULT ───────────────────────────────────────────────── */}
-      {selectedProposal && (
+            {selectedProposal && (
         <section className="card card-delay-1" id="travel-results" ref={resultRef}>
 
           {/* Selected proposal header */}
@@ -876,25 +1038,8 @@ function App() {
             </div>
           )}
 
-          {/* Plan de días */}
-          {Array.isArray(selectedProposal.plan) && selectedProposal.plan.length > 0 && (
-            <div className="result-section">
-              <h3>🗓️ Plan de viaje</h3>
-              <div className="days-grid">
-                {selectedProposal.plan.map((dayPlan) => (
-                  <div className="day-card" key={dayPlan.day}>
-                    <div className="day-number">Día {dayPlan.day}</div>
-                    <div className="day-title">{dayPlan.title}</div>
-                    {Array.isArray(dayPlan.activities) && (
-                      <ul className="activity-list rich">
-                        {dayPlan.activities.map((act, i) => <ActivityItem key={i} act={act} />)}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Plan de días con mapa */}
+          {renderDayPlanUI(selectedProposal, false)}
 
           {/* Hospedaje */}
           {selectedProposal.lodging && (
@@ -937,9 +1082,7 @@ function App() {
           )}
         </section>
       )}
-
-      {/* ── CHAT ─────────────────────────────────────────────────────────── */}
-      {selectedProposal && (
+            {selectedProposal && (
         <section className="card card-delay-2" id="travel-chat">
           <div className="card-header">
             <div className="card-header-icon">💬</div>
@@ -989,13 +1132,208 @@ function App() {
           </form>
         </section>
       )}
-
-      <footer>
+            <footer>
         <div className="footer-divider" />
-        <p>Gestor de Viajes IA · Impulsado por inteligencia artificial</p>
+        <p>vIAja · Impulsado por inteligencia artificial</p>
       </footer>
+          </div>
+        )}
+
+        {activeTab === 'proposals' && proposals.length > 0 && (
+          <div className="dashboard-view proposals-view">
+            <div className="proposals-view-container" style={{ padding: "0", maxWidth: "1200px", margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
+            <div className="dashboard-proposals-header">
+              <div className="modal-header-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                {historyOriginGroup && (
+                  <button 
+                    className="history-btn" 
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'transparent' }}
+                    onClick={() => {
+                      setModalOpen(false);
+                      setProposals([]);
+                      setSelectedHistoryGroup(historyOriginGroup);
+                      setHistoryOriginGroup(null);
+                    }}
+                  >
+                    ⬅ Volver a {historyOriginGroup}
+                  </button>
+                )}
+                <span className="modal-title-icon">✈️</span>
+                <div>
+                  <h2 className="modal-title">Tus 3 propuestas de viaje</h2>
+                  <p className="modal-subtitle">{currentSeason?.label} · {budget}€ · {effectiveTravelType} · {days} {days === 1 ? 'día' : 'días'}</p>
+                </div>
+              </div>
+              
+            </div>
+
+            {/* Proposal Tabs */}
+            <div className="proposal-tabs">
+              {proposals.map((p, i) => (
+                <button
+                  key={i}
+                  className={`proposal-tab${activeProposal === i ? ' active' : ''}`}
+                  onClick={() => setActiveProposal(i)}
+                  id={`proposal-tab-${i}`}
+                >
+                  <span className="proposal-tab-emoji">{PROPOSAL_LABELS[i]?.emoji}</span>
+                  <span className="proposal-tab-label">{PROPOSAL_LABELS[i]?.label}</span>
+                  <span className="proposal-tab-dest">{p.destination}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Active Proposal Content */}
+            {currentProposal && (
+              <div className="modal-body">
+                {/* Destination Hero */}
+                <div className="modal-destination-hero">
+                  {currentProposal.image && !imgErrors[activeProposal] ? (
+                    <div className="modal-hero-img-wrap">
+                      <img
+                        src={currentProposal.image}
+                        alt={currentProposal.destination}
+                        className="modal-hero-img"
+                        onError={() => setImgErrors(prev => ({ ...prev, [activeProposal]: true }))}
+                      />
+                      <div className="modal-hero-overlay" />
+                      <div className="modal-hero-title">
+                        <div className="proposal-type-pill">
+                          <span>{PROPOSAL_LABELS[activeProposal]?.emoji}</span>
+                          <span>{PROPOSAL_LABELS[activeProposal]?.label}</span>
+                          <span className="proposal-type-desc">— {PROPOSAL_LABELS[activeProposal]?.desc}</span>
+                        </div>
+                        <h3 className="modal-dest-name">{currentProposal.destination}</h3>
+                        {currentProposal.country && <span className="modal-dest-country">{currentProposal.country}</span>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="modal-hero-no-img">
+                      <div className="proposal-type-pill">
+                        <span>{PROPOSAL_LABELS[activeProposal]?.emoji}</span>
+                        <span>{PROPOSAL_LABELS[activeProposal]?.label}</span>
+                        <span className="proposal-type-desc">— {PROPOSAL_LABELS[activeProposal]?.desc}</span>
+                      </div>
+                      <h3 className="modal-dest-name-plain">{currentProposal.destination}{currentProposal.country ? `, ${currentProposal.country}` : ''}</h3>
+                    </div>
+                  )}
+                </div>
+
+                {/* Why block */}
+                {currentProposal.why && (
+                  <div className="modal-why-block">
+                    <div className="why-icon">💡</div>
+                    <div>
+                      <strong>¿Por qué este destino?</strong>
+                      <p>{currentProposal.why}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Plan preview */}
+                {renderDayPlanUI(currentProposal, true)}
+
+                {/* Lodging */}
+                {currentProposal.lodging && (
+                  <div className="modal-section">
+                    <h4 className="modal-section-title">🏨 3 opciones de hospedaje</h4>
+                    <LodgingSection lodging={currentProposal.lodging} />
+                  </div>
+                )}
+
+                {/* Navigation arrows + Select CTA */}
+                <div className="modal-footer-actions">
+                  <div className="modal-nav-arrows">
+                    <button className="modal-nav-btn" onClick={goPrev} aria-label="Propuesta anterior">
+                      ‹
+                    </button>
+                    <span className="modal-nav-counter">{activeProposal + 1} / {proposals.length}</span>
+                    <button className="modal-nav-btn" onClick={goNext} aria-label="Propuesta siguiente">
+                      ›
+                    </button>
+                  </div>
+                  <button
+                    className="btn-select-proposal"
+                    onClick={() => handleSelectProposal(currentProposal)}
+                    id={`select-proposal-${activeProposal}`}
+                  >
+                    <span>Elegir este destino</span>
+                    <span className="btn-select-arrow">→</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          </div>
+        )}
+
+        {(activeTab === 'history' || activeTab === 'all_history') && (
+          
+  <div className="dashboard-view history-view" style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <h2>{activeTab === 'history' ? '📚 Guardados' : '🕰️ Historial Completo'}</h2>
+      {selectedHistoryGroup && (
+        <button className="btn-secondary" onClick={() => setSelectedHistoryGroup(null)}>
+          ⬅ Volver a grupos
+        </button>
+      )}
+    </div>
+
+    {!selectedHistoryGroup ? (
+      <div className="history-groups-grid" style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+        {historyLoading ? (
+          <div className="loading-spinner"><span className="spinner"></span></div>
+        ) : (activeTab === 'history' ? historyPlans.filter(p => savedPlans.includes(p.id)) : historyPlans).length === 0 ? (
+          <p>Aún no tienes viajes guardados. ¡Genera tu primero!</p>
+        ) : (
+          Object.entries(
+            (activeTab === 'history' ? historyPlans.filter(p => savedPlans.includes(p.id)) : historyPlans).reduce((acc, plan) => {
+              const type = plan.travelType || 'Otros';
+              if (!acc[type]) acc[type] = [];
+              acc[type].push(plan);
+              return acc;
+            }, {})
+          ).map(([type, plans]) => (
+            <button
+              key={type}
+              className="history-group-card card"
+              onClick={() => setSelectedHistoryGroup(type)}
+              style={{ padding: '24px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{type}</h3>
+              <span className="badge badge-accent" style={{ background: 'var(--accent-indigo)', color: 'white', padding: '4px 12px', borderRadius: '20px' }}>
+                {plans.length} viajes
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+    ) : (
+      <div className="previews-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
+        {(activeTab === 'history' ? historyPlans.filter(p => savedPlans.includes(p.id)) : historyPlans).filter(p => (p.travelType || 'Otros') === selectedHistoryGroup).map(plan => (
+          <button
+            key={plan.id}
+            onClick={() => loadPlanFromHistory(plan.id, selectedHistoryGroup)}
+            disabled={planLoading}
+            className="card previews-card"
+            style={{ padding: '12px', cursor: 'pointer', textAlign: 'left', border: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}
+          >
+            {plan.imageUrl ? (
+              <img src={plan.imageUrl} alt={plan.destination} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px', marginBottom: '12px' }} />
+            ) : (
+              <div style={{ width: '100%', height: '180px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', borderRadius: '8px', marginBottom: '12px' }}>🌍</div>
+            )}
+            <h4 style={{ margin: '0 0 4px', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{plan.destination}</h4>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{plan.days} días · {formatDate(plan.createdAt)}</span>
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+
+        )}
+      </main>
     </div>
   );
 }
-
 export default App;
