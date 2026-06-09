@@ -1,113 +1,103 @@
-# ✈️ vIAja
+#  trIAvel
 
-Planificador de viajes inteligente impulsado por **Azure AI Foundry** (GPT-4o-mini). Genera 3 propuestas de destino personalizadas, planifica cada día con actividades reales, recomienda hospedaje y muestra un **mapa interactivo** con la ruta diaria y restaurantes cercanos.
+Planificador de viajes inteligente impulsado por **Azure AI Foundry** (GPT-4o-mini). Genera 3 propuestas de destino personalizadas simultáneamente, planifica cada día con actividades reales, recomienda hospedaje y muestra un **mapa interactivo** con la ruta diaria y los restaurantes más cercanos. Todo en una interfaz moderna y dividida en pestañas para una experiencia inmersiva.
 
 ---
 
-## 🚀 Funcionalidades
+##  Funcionalidades Principales
 
-### Formulario de preferencias
-- Selección de **temporada** (primavera / verano / otoño / invierno)
+###  Formulario de Búsqueda Personalizada
+La pantalla de inicio está dedicada exclusivamente a definir tu viaje ideal:
+- **Temporada**: Primavera / Verano / Otoño / Invierno
 - **Presupuesto total** en euros
-- **Enfoque del viaje** multi-selección: Monumentos, Gastronomía, Naturaleza, Fiesta, Familiar, Escapada o personalizado
-- **Región de destino** multi-selección: Europa, Asia, América, España, etc.
-- **Duración**: presets rápidos (fin de semana, 1 semana…) o selector de días exacto
+- **Enfoque del viaje** (Multi-selección): Monumentos, Gastronomía, Naturaleza, Fiesta, Familiar, Escapada o incluso enfoques personalizados.
+- **Región de destino** (Multi-selección): Europa, Asia, América, España o cualquier parte del mundo.
+- **Duración**: Selección rápida mediante presets (fin de semana, 1 semana, etc.) o días exactos (stepper).
+- **Multi-idioma**: Soporte completo de interfaz en Español, Inglés, Francés, Alemán, Portugués e Italiano.
 
-### 3 Propuestas simultáneas con IA
-- La IA genera en paralelo **3 destinos distintos**: Clásico ⭐, Alternativo 💎 y Exótico 🌏
-- Cada propuesta incluye:
-  - Imagen real del destino (vía Unsplash)
-  - Justificación del destino ("¿Por qué este destino?")
-  - Plan día a día con 3-4 actividades por día (nombre, descripción, precio, URL oficial)
-  - 6 opciones de hospedaje (2 económico, 2 estándar, 2 premium) con precios y links de reserva
+###  3 Propuestas con Inteligencia Artificial
+La IA procesa tus preferencias y genera en paralelo **3 destinos distintos** clasificados según su perfil:
+-  **Clásico**: Destinos icónicos y consolidados.
+-  **Alternativo**: Lugares de gran valor pero menos masificados.
+-  **Exótico**: Para una aventura inolvidable.
 
-### 🗺️ Mapa interactivo con ruta diaria
-Al seleccionar un destino aparece el plan completo con:
-- **Tabs de días clicables** — al clicar un día se carga el mapa de esa jornada
-- **Mapa Leaflet** (OpenStreetMap, sin coste) con:
-  - Marcadores numerados ①②③ en cada monumento/actividad
-  - Línea de ruta discontinua conectando los puntos en orden
-  - Marcadores 🍽️ para restaurantes y bares cercanos en la ruta
-- **Sección "Dónde comer cerca"** con tarjetas de restaurantes que incluyen:
-  - Tipo de local (restaurante, bar, café, bistro…)
-  - Tipo de cocina
-  - Rating ⭐ con estrellas visuales
-  - Horario de apertura
-  - Botón "Ver en Maps" → Google Maps
-- **Filtro de estrellas mínimas** (Todos / 3+ / 4+ / 4.5+) para los restaurantes
+Cada propuesta te mostrará una imagen real, la justificación de la IA, el plan diario y opciones de alojamiento. Al pulsar en "Elegir este destino", la propuesta se guardará de forma permanente y podrás interactuar con ella a fondo.
 
-### 💬 Chat con memoria (RAG)
-- Asistente conversacional sobre el viaje planificado
-- Recuerda el contexto de **chats anteriores** en otros viajes similares (RAG semántico)
+### 📚 Historial y Viajes Guardados
+Tus viajes elegidos y generados se gestionan en las vistas de **Guardados** e **Historial**:
+- Todos los viajes generados se indexan automáticamente en **Azure AI Search**.
+- Interfaz en cuadrícula (estilo *polaroid*) con agrupación automática según el estilo de viaje.
+- Acceso inmediato para reanudar la planificación o la conversación con el asistente sobre cualquier destino del pasado.
 
-### 📚 Historial de viajes
-- Todos los viajes generados se indexan automáticamente en **Azure AI Search**
-- Panel lateral "Mis viajes" agrupa los planes por tipo de viaje
-- Vista en cuadrícula estilo "polaroids" con imagen y fecha
-- Recupera cualquier plan anterior con su chat histórico intacto
+### 🪟 Vista Detallada de Destino y Chat
+Al acceder a un viaje guardado, entrarás en una vista inmersiva que ocupa toda tu pantalla, dividida en pestañas para evitar el desorden visual:
+- ** Chat Inteligente (RAG)**: Conversa con el asistente virtual específicamente sobre este destino. El chat ocupa todo el espacio sobrante de tu pantalla para resultar natural, e incluye "Memoria" (contexto de conversaciones en otros viajes similares).
+- ** Información del destino**: Visualiza el desglose completo del viaje generado por la IA, que incluye:
+  - **Plan día a día**: Actividades con nombre, precio estimado y descripción.
+  - **Opciones de Hospedaje**: Organizadas en Económico, Estándar y Premium (con enlaces web reales).
+  - **Mapa Interactivo Leaflet**: Integra OpenStreetMap y la geocodificación de Nominatim sin coste. Traza la ruta recomendada con marcadores numerados.
+  - **Restaurantes cercanos**: Mediante la API de Overpass, busca restaurantes cercanos al punto central de las actividades del día, con filtrado por valoración de estrellas.
 
-### 🎨 Diseño y UX
-- Modo oscuro / claro con toggle
-- Diseño glassmorphism con animaciones suaves
-- Totalmente responsive (móvil, tablet, escritorio)
+### 🎨 Diseño y UX "Glassmorphism"
+- Efectos translúcidos y bordes difuminados, muy elegante.
+- Modo oscuro / modo claro completamente adaptativo.
+- Disposición *responsive*, el menú lateral se oculta y las ventanas se adaptan (Flexbox) para no tener barras de scroll innecesarias.
 
 ---
 
-## 🏗️ Arquitectura
+## 🏗️ Arquitectura del Proyecto
 
 ```
 gestor_viajes/
-├── front/              # React + Vite (UI)
+├── front/              # React + Vite (Frontend UI)
 │   └── src/
-│       ├── App.jsx     # Toda la lógica de UI y componentes
-│       └── styles.css  # Diseño completo con tokens CSS
-├── back/               # Express (API)
-│   ├── index.js        # Endpoints REST
+│       ├── App.jsx     # Toda la lógica de componentes, estado global, tabs y enrutamiento interno
+│       └── styles.css  # Diseño, design tokens CSS y layout flexbox dinámico
+├── back/               # Node.js + Express (Backend API)
+│   ├── index.js        # Endpoints REST (ChatGPT, Geocode, OSMap)
 │   └── services/
-│       ├── azureSearch.js   # CRUD + búsqueda vectorial en Azure AI Search
+│       ├── azureSearch.js   # Interacción con Azure AI Search (CRUD + búsqueda vectorial)
 │       └── embeddings.js    # Generación de embeddings (text-embedding-ada-002)
 ├── .env.example        # Plantilla de variables de entorno
-└── package.json        # Scripts raíz (concurrently)
+└── package.json        # Scripts raíz para arranque simultáneo (concurrently)
 ```
 
-### API Endpoints
+### API Endpoints (Backend)
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST` | `/api/travel` | Genera 3 propuestas de viaje con IA |
-| `POST` | `/api/chat` | Chat con el asistente sobre el viaje |
-| `GET`  | `/api/history` | Lista todos los planes guardados |
-| `GET`  | `/api/plan/:id` | Obtiene un plan completo por ID |
-| `GET`  | `/api/geocode?query=` | Geocodifica un lugar (Nominatim/OSM) |
-| `GET`  | `/api/restaurants?lat=&lng=&radius=&minStars=` | Restaurantes cercanos (Overpass API/OSM) |
+| `POST` | `/api/travel` | Genera 3 propuestas de viaje usando GPT-4o-mini |
+| `POST` | `/api/chat` | Chat interactivo con el asistente (con RAG opcional) |
+| `GET`  | `/api/history` | Recupera el listado de planes generados del índice Azure |
+| `GET`  | `/api/plan/:id` | Devuelve un plan completo y el historial de su chat asociado |
+| `GET`  | `/api/geocode?query=` | Llama a Nominatim (OSM) para obtener coordenadas (lat, lng) |
+| `GET`  | `/api/restaurants?...` | Llama a Overpass (OSM) para restaurantes según radio y centroide |
 
-### Servicios externos utilizados
+### Servicios externos integrados
 
-| Servicio | Uso | Coste |
-|----------|-----|-------|
-| **Azure AI Foundry** (GPT-4o-mini) | Generación de propuestas y chat | De pago (Azure) |
-| **Azure OpenAI** (text-embedding-ada-002) | Embeddings para RAG | De pago (Azure) |
-| **Azure AI Search** | Almacenamiento e índice vectorial | De pago (Azure) |
-| **Unsplash API** | Imágenes del destino | Gratis (50 req/hora) |
-| **Nominatim** (OpenStreetMap) | Geocodificación de actividades | Gratis |
-| **Overpass API** (OpenStreetMap) | Búsqueda de restaurantes cercanos | Gratis |
-| **Leaflet.js** | Mapa interactivo | Gratis (open source) |
-
-> Los servicios de OpenStreetMap (Nominatim + Overpass + Leaflet) son **100% gratuitos** y no requieren tarjeta de crédito. Solo Azure y Unsplash son opcionales/de pago.
+| Servicio | Finalidad | Coste y Disponibilidad |
+|----------|-----------|------------------------|
+| **Azure AI Foundry** (GPT-4o) | Generación de texto (Propuestas + Chat) | De pago (Azure) |
+| **Azure OpenAI** (text-embedding) | Vectores para búsquedas semánticas (RAG) | De pago (Azure) |
+| **Azure AI Search** | Almacenamiento vectorial e Historial de la DB | De pago (Azure) |
+| **Unsplash API** | Imágenes atractivas de portada de destino | Gratis (hasta 50 req/h) |
+| **Nominatim / OSM** | Búsqueda de coordenadas | Gratis (1 req/s máx) |
+| **Overpass API / OSM** | Base de datos geolocalizada de restaurantes | Gratis |
+| **Leaflet.js** | Visualización de Mapas Dinámicos | Open Source |
 
 ---
 
-## ⚙️ Configuración
+## ⚙️ Configuración y Puesta en Marcha
 
 ### 1. Variables de entorno
 
-Copia `.env.example` a `back/.env` y rellena los valores:
+Copia `.env.example` a `back/.env` y rellena con tus claves:
 
 ```bash
 cp .env.example back/.env
 ```
 
-**Obligatorias** (modelo de IA):
+**Bloque obligatorio (Modelo Base):**
 ```env
 AZURE_FOUNDRY_ENDPOINT=https://<tu-recurso>.openai.azure.com/openai/v1
 AZURE_FOUNDRY_API_KEY=<tu-api-key>
@@ -115,12 +105,12 @@ AZURE_FOUNDRY_MODEL=gpt-4o-mini
 PORT=4000
 ```
 
-**Opcional — imágenes del destino** (gratis, registro en [unsplash.com/developers](https://unsplash.com/developers)):
+**Bloque para imágenes fotográficas (Opcional, en [Unsplash Developers](https://unsplash.com/developers)):**
 ```env
 UNSPLASH_ACCESS_KEY=<tu-unsplash-key>
 ```
 
-**Opcional — Historial y RAG** (requiere Azure AI Search + Azure OpenAI Embeddings):
+**Bloque RAG e Historial (Opcional, requiere entorno completo Azure AI):**
 ```env
 AZURE_EMBEDDING_ENDPOINT=https://<tu-recurso>.openai.azure.com/openai/v1
 AZURE_EMBEDDING_API_KEY=<tu-embedding-api-key>
@@ -130,18 +120,12 @@ AZURE_SEARCH_ENDPOINT=https://<tu-servicio>.search.windows.net
 AZURE_SEARCH_API_KEY=<tu-admin-key>
 AZURE_SEARCH_INDEX=travel-plans
 ```
+> *Nota: Si las variables de Azure AI Search no están presentes, la aplicación continuará funcionando guardando planes únicamente en tu disco local `localStorage` de React, y el servicio RAG estará en reposo.*
 
-> Si no configuras las variables de RAG, el historial y la búsqueda semántica se desactivan automáticamente sin romper la app.
+### 2. Instalación de dependencias
 
-### 2. Instalación
+Instala los módulos tanto del servidor Express como del cliente React Vite. Puedes hacerlo desde la raíz si usas un monorepo automatizado, o de forma manual:
 
-Desde la raíz del proyecto:
-
-```bash
-npm install          # instala dependencias de front y back
-```
-
-O manualmente:
 ```bash
 cd front && npm install
 cd ../back && npm install
@@ -149,29 +133,26 @@ cd ../back && npm install
 
 ### 3. Arranque en desarrollo
 
-```bash
-npm run dev          # arranca front (Vite :5173) y back (Express :4000) en paralelo
-```
+Puedes iniciar ambos servidores al mismo tiempo mediante `npm run dev` en el `package.json` principal (si utilizas concurrently), o por separado:
 
-O por separado:
 ```bash
-# Terminal 1 – Backend
+# Terminal 1: Arrancar Backend (puerto 4000)
 cd back && node index.js
 
-# Terminal 2 – Frontend
+# Terminal 2: Arrancar Frontend (puerto 5173 por defecto)
 cd front && npm run dev
 ```
 
-Abre [http://localhost:5173](http://localhost:5173) en el navegador.
+La aplicación estará disponible en [http://localhost:5173](http://localhost:5173).
 
 ---
 
-## 🗄️ Configuración de Azure AI Search (para el Historial)
+## 🗄️ Esquema del Índice en Azure AI Search
 
-Si quieres activar el historial y el RAG, necesitas crear manualmente el índice en Azure AI Search con los siguientes campos:
+Si deseas activar todas las funciones avanzadas y has configurado tu conexión a Azure Search, asegúrate de crear el índice (por ej. `travel-plans`) con estos campos:
 
-| Campo | Tipo | Atributos |
-|-------|------|-----------|
+| Nombre del Campo | Tipo de Dato | Atributos Especiales |
+|------------------|--------------|----------------------|
 | `id` | Edm.String | Key, Retrievable |
 | `destination` | Edm.String | Retrievable, Searchable |
 | `country` | Edm.String | Retrievable |
@@ -187,30 +168,11 @@ Si quieres activar el historial y el RAG, necesitas crear manualmente el índice
 | `imageUrl` | Edm.String | Retrievable |
 | `chatHistory` | Edm.String | Retrievable |
 | `createdAt` | Edm.DateTimeOffset | Retrievable, Sortable |
-| `embedding` | Collection(Edm.Single) | Dimensions: 1536, Algorithm: HNSW |
+| `embedding` | Collection(Edm.Single) | Dimensiones: 1536, Algoritmo: HNSW |
 
----
+## 🧠 Flujo de Generación Aumentada por Recuperación (RAG)
 
-## 📦 Tecnologías
-
-**Frontend**
-- React 18 + Vite 5
-- Leaflet.js (mapas)
-- Axios (peticiones HTTP)
-- CSS vanilla con design tokens
-
-**Backend**
-- Node.js + Express
-- Azure AI Foundry / Azure OpenAI (generación + embeddings)
-- Azure AI Search (almacenamiento vectorial + historial)
-- Nominatim / Overpass API (geocodificación y restaurantes, OpenStreetMap)
-- Unsplash API (imágenes)
-
----
-
-## 🧠 Cómo funciona el RAG
-
-1. Al generar un viaje, se crea un **embedding** (vector de 1536 dimensiones) del plan completo
-2. El vector se indexa en Azure AI Search junto con los metadatos del plan
-3. Al generar nuevas propuestas, se buscan viajes similares ya planificados para **evitar repetir destinos** y mejorar las sugerencias
-4. En el chat, las preguntas también se vectorizan y se recupera contexto de **conversaciones pasadas** relevantes
+1. Al generarse un itinerario, todos los textos del viaje se procesan mediante un modelo de embeddings, resultando en un vector matemático que define el significado de ese viaje.
+2. Este vector numérico se consolida y guarda en **Azure AI Search**.
+3. Cuando interactúas con el Chat en cualquier momento posterior, tu pregunta también es "vectorizada".
+4. El backend busca las interacciones semánticamente más cercanas en toda tu base de datos de historial y le envía ese contexto al modelo GPT, dándole una "memoria externa" de todo lo que habéis discutido previamente o planes similares de la comunidad.

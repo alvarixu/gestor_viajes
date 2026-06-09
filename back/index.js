@@ -441,7 +441,7 @@ app.get('/api/geocode', async (req, res) => {
   try {
     const { data } = await axios.get('https://nominatim.openstreetmap.org/search', {
       params: { q: query, format: 'json', limit: 1, addressdetails: 0 },
-      headers: { 'User-Agent': 'vIAja/1.0 (travel-planner-app)' },
+      headers: { 'User-Agent': 'trIAvel/1.0 (travel-planner-app)' },
       timeout: 6000
     });
     if (!data || data.length === 0) return res.json({ lat: null, lng: null });
@@ -475,7 +475,7 @@ app.get('/api/restaurants', async (req, res) => {
       { 
         headers: { 
           'Content-Type': 'text/plain',
-          'User-Agent': 'vIAja/1.0 (travel-planner-app)'
+          'User-Agent': 'trIAvel/1.0 (travel-planner-app)'
         }, 
         timeout: 15000 
       }
@@ -521,5 +521,5 @@ app.get('/api/restaurants', async (req, res) => {
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
 app.listen(port, () => {
-  console.log(`✈️  vIAja en http://localhost:${port}`);
+  console.log(`✈️  trIAvel en http://localhost:${port}`);
 });

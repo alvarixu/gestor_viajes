@@ -10,7 +10,7 @@ const query = `
 axios.post('https://overpass-api.de/api/interpreter', query, {
   headers: { 
     'Content-Type': 'text/plain',
-    'User-Agent': 'vIAja/1.0 (travel-planner-app)'
+    'User-Agent': 'trIAvel/1.0 (travel-planner-app)'
   },
   timeout: 15000
 }).then(res => {
